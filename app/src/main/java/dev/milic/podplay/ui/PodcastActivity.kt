@@ -5,19 +5,24 @@ import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
+import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.LinearLayoutManager
 import dev.milic.podplay.R
+import dev.milic.podplay.adapter.PodcastListAdapter
 import dev.milic.podplay.databinding.ActivityPodcastBinding
 import dev.milic.podplay.repository.ItunesRepo
 import dev.milic.podplay.service.ItunesService
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import dev.milic.podplay.viewmodel.SearchViewModel
 
-class PodcastActivity : AppCompatActivity() {
+
+class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapterListener {
 
     private lateinit var binding: ActivityPodcastBinding
+    private val searchViewModel by viewModels<SearchViewModel>()
+    private lateinit var podcastListAdapter: PodcastListAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +30,8 @@ class PodcastActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupToolbar()
+        setupViewModels()
+        updateControls()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -45,24 +52,35 @@ class PodcastActivity : AppCompatActivity() {
         handleIntent(intent)
     }
 
-    private fun setupToolbar() {
-        setSupportActionBar(binding.toolbar)
+    override fun onShowDetails(podcastSummaryViewData: SearchViewModel.PodcastSummaryViewData) {
+        TODO("Not yet implemented")
     }
 
-    private fun performSearch(term: String) {
-        val itunesService = ItunesService.instance
-        val itunesRepo = ItunesRepo(itunesService)
-
-        GlobalScope.launch {
-            val results = itunesRepo.searchTerm(term)
-        }
+    private fun setupToolbar() {
+        setSupportActionBar(binding.toolbar)
     }
 
     private fun handleIntent(intent: Intent) {
         if (Intent.ACTION_SEARCH == intent.action) {
             val query =
                 intent.getStringExtra(SearchManager.QUERY) ?: return
-            performSearch(query)
         }
+    }
+
+    private fun setupViewModels() {
+        val service = ItunesService.instance
+        searchViewModel.iTunesRepo = ItunesRepo(service)
+    }
+
+    private fun updateControls() {
+        val layoutManager = LinearLayoutManager(this)
+        val dividerItemDecoration =
+            DividerItemDecoration(binding.podcastRecyclerView.context, layoutManager.orientation)
+        podcastListAdapter = PodcastListAdapter(null, this, this)
+
+        binding.podcastRecyclerView.setHasFixedSize(true)
+        binding.podcastRecyclerView.layoutManager = layoutManager
+        binding.podcastRecyclerView.addItemDecoration(dividerItemDecoration)
+        binding.podcastRecyclerView.adapter = podcastListAdapter
     }
 }
