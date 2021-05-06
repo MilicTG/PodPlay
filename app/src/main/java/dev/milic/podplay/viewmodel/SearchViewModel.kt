@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import dev.milic.podplay.repository.ItunesRepo
 import dev.milic.podplay.service.PodcastResponse
+import dev.milic.podplay.util.DateUtils
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -26,7 +27,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private fun itunesPodcastToPodcastSummaryView(itunesPodcast: PodcastResponse.ItunesPodcast): PodcastSummaryViewData {
         return PodcastSummaryViewData(
             itunesPodcast.collectionCensoredName,
-            itunesPodcast.releaseDate,
+            DateUtils.jsonDateToShortDate(itunesPodcast.releaseDate),
             itunesPodcast.artworkUrl30,
             itunesPodcast.feedUrl
         )

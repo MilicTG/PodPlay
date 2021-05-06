@@ -6,6 +6,7 @@ import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
+import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.DividerItemDecoration
@@ -16,6 +17,10 @@ import dev.milic.podplay.databinding.ActivityPodcastBinding
 import dev.milic.podplay.repository.ItunesRepo
 import dev.milic.podplay.service.ItunesService
 import dev.milic.podplay.viewmodel.SearchViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapterListener {
@@ -32,6 +37,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         setupToolbar()
         setupViewModels()
         updateControls()
+        handleIntent(intent)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -64,6 +70,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         if (Intent.ACTION_SEARCH == intent.action) {
             val query =
                 intent.getStringExtra(SearchManager.QUERY) ?: return
+            performSearch(query)
         }
     }
 
@@ -82,5 +89,25 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         binding.podcastRecyclerView.layoutManager = layoutManager
         binding.podcastRecyclerView.addItemDecoration(dividerItemDecoration)
         binding.podcastRecyclerView.adapter = podcastListAdapter
+    }
+
+    private fun performSearch(term: String) {
+        showProgressBar()
+        GlobalScope.launch {
+            val results = searchViewModel.searchPodcast(term)
+            withContext(Dispatchers.Main) {
+                hideProgressBar()
+                binding.toolbar.title = term
+                podcastListAdapter.setSearchData(results)
+            }
+        }
+    }
+
+    private fun showProgressBar() {
+        binding.progressBar.visibility = View.VISIBLE
+    }
+
+    private fun hideProgressBar() {
+        binding.progressBar.visibility = View.INVISIBLE
     }
 }
