@@ -9,6 +9,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SearchView
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -16,7 +17,9 @@ import dev.milic.podplay.R
 import dev.milic.podplay.adapter.PodcastListAdapter
 import dev.milic.podplay.databinding.ActivityPodcastBinding
 import dev.milic.podplay.repository.ItunesRepo
+import dev.milic.podplay.repository.PodcastRepo
 import dev.milic.podplay.service.ItunesService
+import dev.milic.podplay.viewmodel.PodcastViewModel
 import dev.milic.podplay.viewmodel.SearchViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -28,6 +31,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
 
     private lateinit var binding: ActivityPodcastBinding
     private val searchViewModel by viewModels<SearchViewModel>()
+    private val podcastViewModel by viewModels<PodcastViewModel>()
     private lateinit var podcastListAdapter: PodcastListAdapter
     private lateinit var searchMenuItem: MenuItem
 
@@ -44,6 +48,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         setupViewModels()
         updateControls()
         handleIntent(intent)
+        addBackStackListener()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -55,6 +60,10 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         val searchManager = getSystemService(Context.SEARCH_SERVICE) as SearchManager
 
         searchView.setSearchableInfo(searchManager.getSearchableInfo(componentName))
+
+        if (supportFragmentManager.backStackEntryCount > 0) {
+            binding.podcastRecyclerView.visibility = View.INVISIBLE
+        }
 
         if (binding.podcastRecyclerView.visibility == View.INVISIBLE) {
             searchMenuItem.isVisible = false
@@ -70,7 +79,18 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
     }
 
     override fun onShowDetails(podcastSummaryViewData: SearchViewModel.PodcastSummaryViewData) {
-        TODO("Not yet implemented")
+        val feedUrl = podcastSummaryViewData.feedUrl ?: return
+        showProgressBar()
+
+        val podcast = podcastViewModel.getPodcast(podcastSummaryViewData)
+        hideProgressBar()
+
+        if (podcast != null) {
+            showDetailsFragment()
+        } else {
+            showError("Error loading feed $feedUrl")
+        }
+
     }
 
     private fun setupToolbar() {
@@ -88,6 +108,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
     private fun setupViewModels() {
         val service = ItunesService.instance
         searchViewModel.iTunesRepo = ItunesRepo(service)
+        podcastViewModel.podcastRepo = PodcastRepo()
     }
 
     private fun updateControls() {
@@ -124,7 +145,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
 
     private fun createPodcastDetailsFragment(): PodcastDetailsFragment {
         var podcastDetailsFragment = supportFragmentManager
-            .findFragmentByTag(TAG_DETAILS_FRAGMENT) as PodcastDetailsFragment
+            .findFragmentByTag(TAG_DETAILS_FRAGMENT) as PodcastDetailsFragment?
 
         if (podcastDetailsFragment == null) {
             podcastDetailsFragment = PodcastDetailsFragment.newInstance()
@@ -141,5 +162,21 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
 
         binding.podcastRecyclerView.visibility = View.INVISIBLE
         searchMenuItem.isVisible = false
+    }
+
+    private fun addBackStackListener() {
+        supportFragmentManager.addOnBackStackChangedListener {
+            if (supportFragmentManager.backStackEntryCount == 0) {
+                binding.podcastRecyclerView.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun showError(message: String) {
+        AlertDialog.Builder(this)
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.ok_button), null)
+            .create()
+            .show()
     }
 }
