@@ -15,10 +15,12 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.milic.podplay.R
 import dev.milic.podplay.adapter.PodcastListAdapter
+import dev.milic.podplay.adapter.PodcastListAdapter.*
 import dev.milic.podplay.databinding.ActivityPodcastBinding
 import dev.milic.podplay.repository.ItunesRepo
 import dev.milic.podplay.repository.PodcastRepo
 import dev.milic.podplay.service.ItunesService
+import dev.milic.podplay.service.RssFeedService
 import dev.milic.podplay.viewmodel.PodcastViewModel
 import dev.milic.podplay.viewmodel.SearchViewModel
 import kotlinx.coroutines.Dispatchers
@@ -27,26 +29,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapterListener {
+class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
 
-    private lateinit var binding: ActivityPodcastBinding
     private val searchViewModel by viewModels<SearchViewModel>()
     private val podcastViewModel by viewModels<PodcastViewModel>()
     private lateinit var podcastListAdapter: PodcastListAdapter
     private lateinit var searchMenuItem: MenuItem
-
-    companion object {
-        private const val TAG_DETAILS_FRAGMENT = "DetailsFragment"
-    }
+    private lateinit var binding: ActivityPodcastBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityPodcastBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
         setupToolbar()
         setupViewModels()
         updateControls()
+        createSubscription()
         handleIntent(intent)
         addBackStackListener()
     }
@@ -57,8 +55,8 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
 
         searchMenuItem = menu.findItem(R.id.search_item)
         val searchView = searchMenuItem.actionView as SearchView
-        val searchManager = getSystemService(Context.SEARCH_SERVICE) as SearchManager
 
+        val searchManager = getSystemService(Context.SEARCH_SERVICE) as SearchManager
         searchView.setSearchableInfo(searchManager.getSearchableInfo(componentName))
 
         if (supportFragmentManager.backStackEntryCount > 0) {
@@ -78,49 +76,22 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         handleIntent(intent)
     }
 
+    private fun createSubscription() {
+        podcastViewModel.podcastLiveData.observe(this, {
+            hideProgressBar()
+            if (it != null) {
+                showDetailsFragment()
+            } else {
+                showError("Error loading feed")
+            }
+        })
+    }
+
     override fun onShowDetails(podcastSummaryViewData: SearchViewModel.PodcastSummaryViewData) {
-        val feedUrl = podcastSummaryViewData.feedUrl ?: return
-        showProgressBar()
-
-        val podcast = podcastViewModel.getPodcast(podcastSummaryViewData)
-        hideProgressBar()
-
-        if (podcast != null) {
-            showDetailsFragment()
-        } else {
-            showError("Error loading feed $feedUrl")
+        podcastSummaryViewData.feedUrl?.let {
+            showProgressBar()
+            podcastViewModel.getPodcast(podcastSummaryViewData)
         }
-
-    }
-
-    private fun setupToolbar() {
-        setSupportActionBar(binding.toolbar)
-    }
-
-    private fun handleIntent(intent: Intent) {
-        if (Intent.ACTION_SEARCH == intent.action) {
-            val query =
-                intent.getStringExtra(SearchManager.QUERY) ?: return
-            performSearch(query)
-        }
-    }
-
-    private fun setupViewModels() {
-        val service = ItunesService.instance
-        searchViewModel.iTunesRepo = ItunesRepo(service)
-        podcastViewModel.podcastRepo = PodcastRepo()
-    }
-
-    private fun updateControls() {
-        val layoutManager = LinearLayoutManager(this)
-        val dividerItemDecoration =
-            DividerItemDecoration(binding.podcastRecyclerView.context, layoutManager.orientation)
-        podcastListAdapter = PodcastListAdapter(null, this, this)
-
-        binding.podcastRecyclerView.setHasFixedSize(true)
-        binding.podcastRecyclerView.layoutManager = layoutManager
-        binding.podcastRecyclerView.addItemDecoration(dividerItemDecoration)
-        binding.podcastRecyclerView.adapter = podcastListAdapter
     }
 
     private fun performSearch(term: String) {
@@ -135,33 +106,21 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         }
     }
 
-    private fun showProgressBar() {
-        binding.progressBar.visibility = View.VISIBLE
-    }
-
-    private fun hideProgressBar() {
-        binding.progressBar.visibility = View.INVISIBLE
-    }
-
-    private fun createPodcastDetailsFragment(): PodcastDetailsFragment {
-        var podcastDetailsFragment = supportFragmentManager
-            .findFragmentByTag(TAG_DETAILS_FRAGMENT) as PodcastDetailsFragment?
-
-        if (podcastDetailsFragment == null) {
-            podcastDetailsFragment = PodcastDetailsFragment.newInstance()
+    private fun handleIntent(intent: Intent) {
+        if (Intent.ACTION_SEARCH == intent.action) {
+            val query = intent.getStringExtra(SearchManager.QUERY) ?: return
+            performSearch(query)
         }
-        return podcastDetailsFragment
     }
 
-    private fun showDetailsFragment() {
-        val podcastDetailsFragment = createPodcastDetailsFragment()
+    private fun setupToolbar() {
+        setSupportActionBar(binding.toolbar)
+    }
 
-        supportFragmentManager.beginTransaction().add(
-            R.id.podcastDetailsContainer, podcastDetailsFragment, TAG_DETAILS_FRAGMENT
-        ).addToBackStack("DetailsFragment").commit()
-
-        binding.podcastRecyclerView.visibility = View.INVISIBLE
-        searchMenuItem.isVisible = false
+    private fun setupViewModels() {
+        val service = ItunesService.instance
+        searchViewModel.iTunesRepo = ItunesRepo(service)
+        podcastViewModel.podcastRepo = PodcastRepo(RssFeedService.instance)
     }
 
     private fun addBackStackListener() {
@@ -172,11 +131,62 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapter.PodcastListAdapt
         }
     }
 
+    private fun updateControls() {
+        binding.podcastRecyclerView.setHasFixedSize(true)
+
+        val layoutManager = LinearLayoutManager(this)
+        binding.podcastRecyclerView.layoutManager = layoutManager
+
+        val dividerItemDecoration = DividerItemDecoration(
+            binding.podcastRecyclerView.context,
+            layoutManager.orientation
+        )
+        binding.podcastRecyclerView.addItemDecoration(dividerItemDecoration)
+
+        podcastListAdapter = PodcastListAdapter(null, this, this)
+        binding.podcastRecyclerView.adapter = podcastListAdapter
+    }
+
+
+    private fun showDetailsFragment() {
+        val podcastDetailsFragment = createPodcastDetailsFragment()
+
+        supportFragmentManager
+            .beginTransaction()
+            .replace(R.id.podcastDetailsContainer, podcastDetailsFragment, TAG_DETAILS_FRAGMENT)
+            .addToBackStack("DetailsFragment")
+            .commit()
+        binding.podcastRecyclerView.visibility = View.INVISIBLE
+        searchMenuItem.isVisible = false
+    }
+
+    private fun createPodcastDetailsFragment(): PodcastDetailsFragment {
+        var podcastDetailsFragment =
+            supportFragmentManager.findFragmentByTag(TAG_DETAILS_FRAGMENT) as PodcastDetailsFragment?
+
+        if (podcastDetailsFragment == null) {
+            podcastDetailsFragment = PodcastDetailsFragment.newInstance()
+        }
+
+        return podcastDetailsFragment
+    }
+
+    private fun showProgressBar() {
+        binding.progressBar.visibility = View.VISIBLE
+    }
+
+    private fun hideProgressBar() {
+        binding.progressBar.visibility = View.INVISIBLE
+    }
+
     private fun showError(message: String) {
-        AlertDialog.Builder(this)
-            .setMessage(message)
-            .setPositiveButton(getString(R.string.ok_button), null)
-            .create()
-            .show()
+        AlertDialog.Builder(this).setMessage(message).setPositiveButton(
+            getString(R.string.ok_button),
+            null
+        ).create().show()
+    }
+
+    companion object {
+        private const val TAG_DETAILS_FRAGMENT = "DetailsFragment"
     }
 }

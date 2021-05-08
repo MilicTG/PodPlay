@@ -18,8 +18,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class RssFeedService private constructor() {
 
-    suspend fun getFeed(xmlFileUrl: String): RssFeedResponse? {
+    suspend fun getFeed(xmlFileURL: String): RssFeedResponse? {
         val service: FeedService
+
         val interceptor = HttpLoggingInterceptor()
         interceptor.level = HttpLoggingInterceptor.Level.BODY
 
@@ -27,27 +28,26 @@ class RssFeedService private constructor() {
             .connectTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+
         if (BuildConfig.DEBUG) {
             client.addInterceptor(interceptor)
         }
         client.build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("${xmlFileUrl.split("?")[0]}/")
+            .baseUrl("${xmlFileURL.split("?")[0]}/")
             .build()
-
         service = retrofit.create(FeedService::class.java)
 
         try {
-            val result = service.getFeed(xmlFileUrl)
+            val result = service.getFeed(xmlFileURL)
             if (result.code() >= 400) {
                 println("server error, ${result.code()}, ${result.errorBody()}")
                 return null
             } else {
-                var rssFeedResponse: RssFeedResponse? = null
+                var rssFeedResponse: RssFeedResponse?
                 val dbFactory = DocumentBuilderFactory.newInstance()
                 val dBuilder = dbFactory.newDocumentBuilder()
-
                 withContext(Dispatchers.IO) {
                     val doc = dBuilder.parse(result.body()?.byteStream())
                     val rss = RssFeedResponse(episodes = mutableListOf())
@@ -55,8 +55,6 @@ class RssFeedService private constructor() {
                     println(rss)
                     rssFeedResponse = rss
                 }
-
-                //return success
                 return rssFeedResponse
             }
         } catch (t: Throwable) {
@@ -69,12 +67,14 @@ class RssFeedService private constructor() {
         if (node.nodeType == Node.ELEMENT_NODE) {
             val nodeName = node.nodeName
             val parentName = node.parentNode.nodeName
+            // 1
             val grandParentName = node.parentNode.parentNode?.nodeName ?: ""
-
+            // 2
             if (parentName == "item" && grandParentName == "channel") {
+                // 3
                 val currentItem = rssFeedResponse.episodes?.last()
-
                 if (currentItem != null) {
+                    // 4
                     when (nodeName) {
                         "title" -> currentItem.title = node.textContent
                         "description" -> currentItem.description = node.textContent
@@ -91,10 +91,9 @@ class RssFeedService private constructor() {
                     }
                 }
             }
-
             if (parentName == "channel") {
                 when (nodeName) {
-                    "title" -> rssFeedResponse.description = node.textContent
+                    "title" -> rssFeedResponse.title = node.textContent
                     "description" -> rssFeedResponse.description = node.textContent
                     "itunes:summary" -> rssFeedResponse.summary = node.textContent
                     "item" -> rssFeedResponse.episodes?.add(RssFeedResponse.EpisodeResponse())
@@ -103,7 +102,6 @@ class RssFeedService private constructor() {
                 }
             }
         }
-
         val nodeList = node.childNodes
         for (i in 0 until nodeList.length) {
             val childNode = nodeList.item(i)
@@ -116,13 +114,13 @@ class RssFeedService private constructor() {
             RssFeedService()
         }
     }
+}
 
-    interface FeedService {
-        @Headers(
-            "Content-Type: application/xml; charset=utf-8",
-            "Accept: application/xml"
-        )
-        @GET
-        suspend fun getFeed(@Url xmlFileUrl: String): Response<ResponseBody>
-    }
+interface FeedService {
+    @Headers(
+        "Content-Type: application/xml; charset=utf-8",
+        "Accept: application/xml"
+    )
+    @GET
+    suspend fun getFeed(@Url xmlFileURL: String): Response<ResponseBody>
 }
