@@ -40,7 +40,7 @@ class PodcastRepo(private var feedService: RssFeedService) {
             rssResponse.summary else rssResponse.description
 
         return Podcast(
-            feedUrl, rssResponse.title, description, imageUrl,
+            null, feedUrl, rssResponse.title, description, imageUrl,
             rssResponse.lastUpdated, episodes = rssItemsToEpisodes(items)
         )
     }
