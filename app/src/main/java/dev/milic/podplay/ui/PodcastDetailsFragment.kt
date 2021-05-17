@@ -1,5 +1,6 @@
 package dev.milic.podplay.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.text.method.ScrollingMovementMethod
 import android.view.*
@@ -12,12 +13,14 @@ import dev.milic.podplay.R
 import dev.milic.podplay.adapter.EpisodeListAdapter
 import dev.milic.podplay.databinding.FragmentPodcastDetailBinding
 import dev.milic.podplay.viewmodel.PodcastViewModel
+import java.lang.RuntimeException
 
 class PodcastDetailsFragment : Fragment() {
 
     private lateinit var binding: FragmentPodcastDetailBinding
     private lateinit var episodeListAdapter: EpisodeListAdapter
     private val podcastViewModel: PodcastViewModel by activityViewModels()
+    private var listener: OnPodcastDetailsListener? = null
 
     companion object {
         fun newInstance(): PodcastDetailsFragment {
@@ -68,8 +71,33 @@ class PodcastDetailsFragment : Fragment() {
 
     }
 
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnPodcastDetailsListener) {
+            listener = context
+        } else {
+            throw RuntimeException(context.toString() + " must implement OnPodcastDetailsListener")
+        }
+    }
+
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         super.onCreateOptionsMenu(menu, inflater)
         inflater.inflate(R.menu.menu_details, menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_feed_action -> {
+                podcastViewModel.podcastLiveData.value?.feedUrl?.let {
+                    listener?.onSubscribe()
+                }
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    interface OnPodcastDetailsListener {
+        fun onSubscribe()
     }
 }
