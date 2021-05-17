@@ -1,20 +1,27 @@
 package dev.milic.podplay.viewmodel
 
 import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
+import dev.milic.podplay.db.PodPlayDatabase
+import dev.milic.podplay.db.PodcastDao
 import dev.milic.podplay.model.Episode
 import dev.milic.podplay.model.Podcast
 import dev.milic.podplay.repository.PodcastRepo
+import dev.milic.podplay.util.DateUtils
 import dev.milic.podplay.viewmodel.SearchViewModel.PodcastSummaryViewData
 import kotlinx.coroutines.launch
 import java.util.*
 
 class PodcastViewModel(application: Application) : AndroidViewModel(application) {
 
+    private var activePodcast: Podcast? = null
+
     var podcastRepo: PodcastRepo? = null
+    val podcastDao: PodcastDao =
+        PodPlayDatabase.getInstance(application, viewModelScope).podcastDao()
+
+    var livePodcastSummaryViewData: LiveData<List<PodcastSummaryViewData>>? = null
+
     private val _podcastLiveData = MutableLiveData<PodcastViewData?>()
     val podcastLiveData: LiveData<PodcastViewData?> = _podcastLiveData
 
@@ -25,12 +32,35 @@ class PodcastViewModel(application: Application) : AndroidViewModel(application)
                     it.feedTitle = podcastSummaryViewData.name ?: ""
                     it.imageUrl = podcastSummaryViewData.imageUrl ?: ""
                     _podcastLiveData.value = podcastToPodcastView(it)
+                    activePodcast = it
                 } ?: run {
                     _podcastLiveData.value = null
                 }
             }
         } ?: run {
             _podcastLiveData.value = null
+        }
+    }
+
+    fun getPodcast(): LiveData<List<PodcastSummaryViewData>>? {
+        val repo = podcastRepo ?: return null
+
+        if (livePodcastSummaryViewData == null) {
+            val liveData = repo.getAll()
+
+            livePodcastSummaryViewData = Transformations.map(liveData) { podcastList ->
+                podcastList.map { podcast ->
+                    podcastToSummaryView(podcast)
+                }
+            }
+        }
+        return livePodcastSummaryViewData
+    }
+
+    fun saveActivePodcast() {
+        val repo = podcastRepo ?: return
+        activePodcast?.let {
+            repo.save(it)
         }
     }
 
@@ -52,6 +82,15 @@ class PodcastViewModel(application: Application) : AndroidViewModel(application)
                 it.duration
             )
         }
+    }
+
+    private fun podcastToSummaryView(podcast: Podcast): PodcastSummaryViewData {
+        return PodcastSummaryViewData(
+            podcast.feedTitle,
+            DateUtils.dateToShortDate(podcast.lastUpdated),
+            podcast.imageUrl,
+            podcast.feedUrl
+        )
     }
 
     data class PodcastViewData(

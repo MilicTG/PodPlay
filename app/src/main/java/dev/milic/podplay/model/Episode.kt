@@ -3,6 +3,7 @@ package dev.milic.podplay.model
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
+import androidx.room.PrimaryKey
 import java.util.*
 
 
@@ -18,7 +19,9 @@ import java.util.*
     indices = [Index("podcastId")]
 )
 data class Episode(
+    @PrimaryKey
     var guid: String = "",
+    var podcastId: Long? = null,
     var title: String = "",
     var description: String = "",
     var mediaUrl: String = "",

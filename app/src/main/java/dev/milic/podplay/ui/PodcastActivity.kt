@@ -120,7 +120,8 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
     private fun setupViewModels() {
         val service = ItunesService.instance
         searchViewModel.iTunesRepo = ItunesRepo(service)
-        podcastViewModel.podcastRepo = PodcastRepo(RssFeedService.instance)
+        podcastViewModel.podcastRepo =
+            PodcastRepo(RssFeedService.instance, podcastViewModel.podcastDao)
     }
 
     private fun addBackStackListener() {

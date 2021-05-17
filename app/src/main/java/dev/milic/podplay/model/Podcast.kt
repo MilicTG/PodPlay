@@ -1,6 +1,7 @@
 package dev.milic.podplay.model
 
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import java.util.*
 
@@ -13,5 +14,6 @@ data class Podcast(
     var feedDesc: String = "",
     var imageUrl: String = "",
     var lastUpdated: Date = Date(),
+    @Ignore
     var episodes: List<Episode> = listOf()
 )
