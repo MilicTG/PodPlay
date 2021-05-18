@@ -64,9 +64,16 @@ class PodcastViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun deleteActivePodcast() {
+        val repo = podcastRepo ?: return
+        activePodcast?.let {
+            repo.delete(it)
+        }
+    }
+
     private fun podcastToPodcastView(podcast: Podcast): PodcastViewData {
         return PodcastViewData(
-            false, podcast.feedTitle, podcast.feedUrl, podcast.feedDesc,
+            podcast.id != null, podcast.feedTitle, podcast.feedUrl, podcast.feedDesc,
             podcast.imageUrl, episodesToEpisodesView(podcast.episodes)
         )
     }

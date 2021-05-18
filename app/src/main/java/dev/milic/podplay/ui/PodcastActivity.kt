@@ -11,6 +11,7 @@ import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SearchView
+import androidx.lifecycle.viewModelScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.milic.podplay.R
@@ -21,6 +22,7 @@ import dev.milic.podplay.repository.ItunesRepo
 import dev.milic.podplay.repository.PodcastRepo
 import dev.milic.podplay.service.ItunesService
 import dev.milic.podplay.service.RssFeedService
+import dev.milic.podplay.ui.PodcastDetailsFragment.OnPodcastDetailsListener
 import dev.milic.podplay.viewmodel.PodcastViewModel
 import dev.milic.podplay.viewmodel.SearchViewModel
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +31,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
+class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener,
+    OnPodcastDetailsListener {
 
     private val searchViewModel by viewModels<SearchViewModel>()
     private val podcastViewModel by viewModels<PodcastViewModel>()
@@ -44,6 +47,7 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
         setupToolbar()
         setupViewModels()
         updateControls()
+        setupPodcastListView()
         createSubscription()
         handleIntent(intent)
         addBackStackListener()
@@ -67,6 +71,17 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
             searchMenuItem.isVisible = false
         }
 
+        searchMenuItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+            override fun onMenuItemActionExpand(item: MenuItem?): Boolean {
+                return true
+            }
+
+            override fun onMenuItemActionCollapse(item: MenuItem?): Boolean {
+                showSubscribedPodcasts()
+                return true
+            }
+        })
+
         return true
     }
 
@@ -87,11 +102,43 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
         })
     }
 
-    override fun onShowDetails(podcastSummaryViewData: SearchViewModel.PodcastSummaryViewData) {
-        podcastSummaryViewData.feedUrl?.let {
-            showProgressBar()
-            podcastViewModel.getPodcast(podcastSummaryViewData)
+    override fun onSubscribe() {
+        podcastViewModel.saveActivePodcast()
+        supportFragmentManager.popBackStack()
+    }
+
+    private fun showSubscribedPodcasts() {
+        val podcast = podcastViewModel.getPodcast()?.value
+
+        if (podcast != null) {
+            binding.toolbar.title = getString(R.string.subscribed_podcast)
+            podcastListAdapter.setSearchData(podcast)
         }
+    }
+
+    private fun setupPodcastListView() {
+        podcastViewModel.getPodcast()?.observe(this, {
+            if (it != null) {
+                showSubscribedPodcasts()
+            }
+        })
+    }
+
+    override fun onShowDetails(podcastSummaryViewData: SearchViewModel.PodcastSummaryViewData) {
+        podcastSummaryViewData.feedUrl ?: return
+        showProgressBar()
+        podcastViewModel.viewModelScope.launch (context = Dispatchers.Main){
+            podcastViewModel.getPodcast(podcastSummaryViewData)
+            hideProgressBar()
+            showDetailsFragment()
+        }
+    }
+
+    override fun onUnsubscribe() {
+        podcastViewModel.deleteActivePodcast()
+        supportFragmentManager.popBackStack()
+        hideProgressBar()
+        showDetailsFragment()
     }
 
     private fun performSearch(term: String) {
@@ -190,4 +237,6 @@ class PodcastActivity : AppCompatActivity(), PodcastListAdapterListener {
     companion object {
         private const val TAG_DETAILS_FRAGMENT = "DetailsFragment"
     }
+
+
 }

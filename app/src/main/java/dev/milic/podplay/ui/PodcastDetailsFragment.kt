@@ -66,6 +66,8 @@ class PodcastDetailsFragment : Fragment() {
 
                 episodeListAdapter = EpisodeListAdapter(viewData.episodes)
                 binding.episodeRecyclerView.adapter = episodeListAdapter
+
+                activity?.invalidateOptionsMenu()
             }
         })
 
@@ -97,7 +99,18 @@ class PodcastDetailsFragment : Fragment() {
         }
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu) {
+        podcastViewModel.podcastLiveData.observe(viewLifecycleOwner, { podcast ->
+            if (podcast != null) {
+                menu.findItem(R.id.menu_feed_action).title =
+                    if (podcast.subscribed) getString(R.string.unsubscribe) else getString(R.string.subscribe)
+            }
+        })
+        super.onPrepareOptionsMenu(menu)
+    }
+
     interface OnPodcastDetailsListener {
         fun onSubscribe()
+        fun onUnsubscribe()
     }
 }

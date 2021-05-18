@@ -30,10 +30,25 @@ class PodcastRepo(private var feedService: RssFeedService, private var podcastDa
     suspend fun getPodcast(feedUrl: String): Podcast? {
         var podcast: Podcast? = null
         val feedResponse = feedService.getFeed(feedUrl)
+        val podcastLocal = podcastDao.loadPodcast(feedUrl)
+
+        if (podcastLocal != null) {
+            podcastLocal.id?.let {
+                podcastLocal.episodes = podcastDao.loadEpisodes(it)
+                return podcastLocal
+            }
+        }
+
         if (feedResponse != null) {
             podcast = rssResponseToPodcast(feedUrl, "", feedResponse)
         }
         return podcast
+    }
+
+    fun delete(podcast: Podcast) {
+        GlobalScope.launch {
+            podcastDao.deletePodcast(podcast)
+        }
     }
 
     private fun rssItemsToEpisodes(episodeResponses: List<RssFeedResponse.EpisodeResponse>): List<Episode> {
