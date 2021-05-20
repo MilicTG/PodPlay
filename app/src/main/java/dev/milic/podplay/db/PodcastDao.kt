@@ -21,6 +21,9 @@ interface PodcastDao {
     @Query("SELECT * FROM Podcast WHERE feedUrl = :url")
     suspend fun loadPodcast(url: String): Podcast?
 
+    @Query("SELECT * FROM Podcast ORDER BY FeedTitle")
+    fun loadPodcastStatic(): List<Podcast>
+
     @Insert(onConflict = REPLACE)
     suspend fun insertPodcast(podcast: Podcast): Long
 
