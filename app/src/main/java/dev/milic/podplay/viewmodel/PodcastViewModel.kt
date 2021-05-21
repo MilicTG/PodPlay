@@ -100,6 +100,18 @@ class PodcastViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
+    suspend fun setActivePodcast(feedUrl: String): PodcastSummaryViewData? {
+        val repo = podcastRepo ?: return null
+        val podcast = repo.getPodcast(feedUrl)
+        if (podcast == null) {
+            return null
+        } else {
+            _podcastLiveData.value = podcastToPodcastView(podcast)
+            activePodcast = podcast
+            return podcastToSummaryView(podcast)
+        }
+    }
+
     data class PodcastViewData(
         var subscribed: Boolean = false, var feedTitle: String? = "",
         var feedUrl: String? = "", var feedDesc: String? = "",
