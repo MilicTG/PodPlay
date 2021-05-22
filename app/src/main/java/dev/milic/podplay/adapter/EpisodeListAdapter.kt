@@ -7,14 +7,31 @@ import androidx.recyclerview.widget.RecyclerView
 import dev.milic.podplay.databinding.EpisodeItemBinding
 import dev.milic.podplay.util.DateUtils
 import dev.milic.podplay.util.HtmlUtils
-import dev.milic.podplay.viewmodel.PodcastViewModel
+import dev.milic.podplay.viewmodel.PodcastViewModel.*
 
 class EpisodeListAdapter(
-    private var episodeViewList: List<PodcastViewModel.EpisodeViewData>?
+    private var episodeViewList: List<EpisodeViewData>?,
+    private val episodeListAdapterListener: EpisodeListAdapterListener
 ) : RecyclerView.Adapter<EpisodeListAdapter.ViewHolder>() {
 
-    inner class ViewHolder(binding: EpisodeItemBinding) : RecyclerView.ViewHolder(binding.root) {
-        var episodeViewData: PodcastViewModel.EpisodeViewData? = null
+    interface EpisodeListAdapterListener {
+        fun onSelectedEpisode(episodeViewData: EpisodeViewData)
+    }
+
+    inner class ViewHolder(
+        binding: EpisodeItemBinding,
+        val episodeListAdapterListener: EpisodeListAdapterListener
+    ) : RecyclerView.ViewHolder(binding.root) {
+
+        init {
+            binding.root.setOnClickListener {
+                episodeViewData?.let {
+                    episodeListAdapterListener.onSelectedEpisode(it)
+                }
+            }
+        }
+
+        var episodeViewData: EpisodeViewData? = null
         val titleTextView: TextView = binding.titleView
         val descTextView: TextView = binding.descView
         val durationTextView: TextView = binding.durationView
@@ -30,7 +47,7 @@ class EpisodeListAdapter(
                 LayoutInflater.from(parent.context),
                 parent,
                 false
-            )
+            ), episodeListAdapterListener
         )
     }
 

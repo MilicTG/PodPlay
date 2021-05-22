@@ -2,6 +2,7 @@ package dev.milic.podplay.ui
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
@@ -23,7 +24,7 @@ import dev.milic.podplay.service.PodplayMediaService
 import dev.milic.podplay.viewmodel.PodcastViewModel
 import java.lang.RuntimeException
 
-class PodcastDetailsFragment : Fragment() {
+class PodcastDetailsFragment : Fragment(), EpisodeListAdapter.EpisodeListAdapterListener {
 
     private lateinit var binding: FragmentPodcastDetailBinding
     private lateinit var episodeListAdapter: EpisodeListAdapter
@@ -87,7 +88,7 @@ class PodcastDetailsFragment : Fragment() {
                 )
                 binding.episodeRecyclerView.addItemDecoration(dividerItemDecoration)
 
-                episodeListAdapter = EpisodeListAdapter(viewData.episodes)
+                episodeListAdapter = EpisodeListAdapter(viewData.episodes, this)
                 binding.episodeRecyclerView.adapter = episodeListAdapter
 
                 activity?.invalidateOptionsMenu()
@@ -142,6 +143,20 @@ class PodcastDetailsFragment : Fragment() {
         super.onPrepareOptionsMenu(menu)
     }
 
+    override fun onSelectedEpisode(episodeViewData: PodcastViewModel.EpisodeViewData) {
+        val fragmentActivity = activity as FragmentActivity
+        val controller = MediaControllerCompat.getMediaController(fragmentActivity)
+        if (controller.playbackState != null) {
+            if (controller.playbackState.state == PlaybackStateCompat.STATE_PLAYING) {
+                controller.transportControls.pause()
+            } else {
+                startPlaying(episodeViewData)
+            }
+        } else {
+            startPlaying(episodeViewData)
+        }
+    }
+
     private fun registerMediaController(token: MediaSessionCompat.Token) {
         //activity can go null use this to prevent that
         val fragmentActivity = activity as FragmentActivity
@@ -157,6 +172,14 @@ class PodcastDetailsFragment : Fragment() {
             fragmentActivity, ComponentName(
                 fragmentActivity, PodplayMediaService::class.java
             ), MediaBrowserCallbacks(), null
+        )
+    }
+
+    private fun startPlaying(episodeViewData: PodcastViewModel.EpisodeViewData) {
+        val fragmentActivity = activity as FragmentActivity
+        val controller = MediaControllerCompat.getMediaController(fragmentActivity)
+        controller.transportControls.playFromUri(
+            Uri.parse(episodeViewData.mediaUrl), null
         )
     }
 
